@@ -34,21 +34,22 @@ end
 x           = x(:);                             % clean speech column vector
 y           = y(:);                             % processed speech column vector
 
-fs          = 10000;                            % sample rate of proposed intelligibility measure
-N_frame    	= 256;                              % window support
-K           = 512;                              % FFT size
+fs          = 10000;                            % sample rate of proposed intelligibility measure 10000
+N_frame    	= 256;                              % window support 256
+K           = 512;                              % FFT size 512
 J           = 15;                               % Number of 1/3 octave bands
 mn          = 150;                              % Center frequency of first 1/3 octave band in Hz.
 H           = thirdoct(fs, K, J, mn);           % Get 1/3 octave band matrix
 N           = 30;                               % Number of frames for intermediate intelligibility measure (Length analysis window)
-Beta        = -15;                           	% lower SDR-bound
-dyn_range   = 40;                               % speech dynamic range
+Beta        = -15;                           	% lower SDR-bound -15
+dyn_range   = 40;                               % speech dynamic range 40
 
 % resample signals if other samplerate is used than fs
 if fs_signal ~= fs
     x	= resample(x, fs, fs_signal);
     y 	= resample(y, fs, fs_signal);
 end
+
 
 % remove silent frames
 [x y] = removeSilentFrames(x, y, dyn_range, N_frame, N_frame/2);

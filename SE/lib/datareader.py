@@ -249,22 +249,38 @@ class DataReader(object):
         queue_list = []
         procs = []
 
+        for queue_val in queue_list:
+            print(queue_val.empty())
+
         for i, data in enumerate(data_list):
             queue_list.append(Queue())  # define queues for saving the outputs of functions
+
             procs.append(Process(target=self.get_lpsd, args=(
                 data, queue_list[i])))  # define process
+
+        for queue_val in queue_list:
+            print(queue_val.empty())
 
         for p in procs:  # process start
             p.start()
 
+        for queue_val in queue_list:
+            while queue_val.empty():
+                pass
+
+        for queue_val in queue_list:
+            print(queue_val.empty())
+
         M_list = []
 
         for i in range(dist_num):  # save results from queues and close queues
+            # while not queue_list[i].empty():
             M_list.append(queue_list[i].get())
             queue_list[i].close()
+            queue_list[i].join_thread()
 
         for p in procs:  # close process
-            p.join()
+            p.terminate()
 
         result = np.concatenate(M_list, axis=0)
         # result = np.asarray(M_list)
@@ -307,7 +323,10 @@ class DataReader(object):
         lpsd = np.transpose(np.expand_dims(lpsd, axis=2), (1, 0, 2))[:-1, :]
         phase = np.transpose(np.expand_dims(phase, axis=2), (1, 0, 2))[:-1, :]
         result = np.concatenate((lpsd, phase), axis=2)
+        print("put start ")
+
         output.put(result)
+        print("put done")
 
     @staticmethod
     def _padding(inputs, batch_size):
@@ -337,6 +356,17 @@ class DataReader(object):
 
     def is_lastbatch(self):
         return self.lb
+
+
+# def worker_test(jobs):
+#     while True:
+#         tmp = jobs.get()
+#
+#         if tmp==None:
+#
+#             break
+#         else:
+#             return tmp
 
 
 if __name__ == '__main__':

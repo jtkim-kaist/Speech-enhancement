@@ -39,9 +39,11 @@ def freeze_graph(model_dir, output_dir, output_node_names):
 
     # We clear devices to allow TensorFlow to control on which device it will load operations
     clear_devices = True
+    sess_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+    sess_config.gpu_options.allow_growth = True
 
     # We start a session using a temporary fresh Graph
-    with tf.Session(graph=tf.Graph()) as sess:
+    with tf.Session(graph=tf.Graph(), config=sess_config) as sess:
         # We import the meta graph in the current default Graph
         saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
 
@@ -61,6 +63,7 @@ def freeze_graph(model_dir, output_dir, output_node_names):
         print("%d ops in the final graph." % len(output_graph_def.node))
 
     return output_graph_def
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

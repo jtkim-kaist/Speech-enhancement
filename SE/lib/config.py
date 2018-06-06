@@ -3,7 +3,7 @@ import os
 
 time_width = int(9)
 
-fs = 8000
+fs = float(8000)
 win_size = int(0.025 * fs)  # The number of samples in window
 win_step = int(0.010 * fs)
 # nfft = np.int(2 ** (np.floor(np.log2(win_size) + 1)))
@@ -27,10 +27,10 @@ max_epoch = int(2e6)
 
 batch_size = int(256)
 
-test_batch_size = batch_size
+test_batch_size = 128
 
 val_step = int(20)
-summary_step = int(3000)  # 3000
-summary_fnum = int(1)
+summary_step = int(500)  # 3000
+summary_fnum = int(5)
 
 mode = "fnn"

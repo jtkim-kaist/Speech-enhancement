@@ -53,7 +53,11 @@ class Summary(object):
 
         valid_path = self.valid_path
         clean_speech = self.clean_speech
+        clean_speech = utils.identity_trans(clean_speech)
+
         noisy_speech = self.noisy_speech
+        noisy_speech = utils.identity_trans(noisy_speech)
+
         temp_dir = self.temp_dir
         name = self.name
         logs_dir = self.logs_dir
@@ -83,7 +87,7 @@ class Summary(object):
 
                 mean, std = summary_dr.norm_process(valid_path["norm_path"] + '/norm_noisy.mat')
 
-                lpsd = np.squeeze((lpsd * std) + mean)  # denorm
+                lpsd = np.squeeze((lpsd * std * 1.18) + mean)  # denorm
 
                 recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(phase, (1, 0)),
                                                win_size=config.win_size, win_step=config.win_step, fs=config.fs)
@@ -98,8 +102,8 @@ class Summary(object):
 
         if itr == config.summary_step:
             writer.close()
-            self.noisy_measure = utils.se_eval(clean_speech[0:recon_speech.shape[0]],
-                                          np.squeeze(noisy_speech[0:recon_speech.shape[0]]), float(config.fs))
+            self.noisy_measure = utils.se_eval(clean_speech,
+                                          np.squeeze(noisy_speech), float(config.fs))
             summary_fname = tf.summary.text(name + '_filename', tf.convert_to_tensor(self.noisy_dir))
 
             if name == 'train':
@@ -150,19 +154,19 @@ class Summary(object):
 
             writer = SummaryWriter(log_dir=logs_dir + '/summary')
 
-            writer.add_audio(name + '_audio_ref' + '/clean', clean_speech[0:recon_speech.shape[0]]
-                             /np.max(np.abs(clean_speech[0:recon_speech.shape[0]])), itr,
+            writer.add_audio(name + '_audio_ref' + '/clean', clean_speech
+                             /np.max(np.abs(clean_speech)), itr,
                              sample_rate=config.fs)
-            writer.add_audio(name + '_audio_ref' + '/noisy', noisy_speech[0:recon_speech.shape[0]]
-                             /np.max(np.abs(noisy_speech[0:recon_speech.shape[0]])), itr,
+            writer.add_audio(name + '_audio_ref' + '/noisy', noisy_speech
+                             /np.max(np.abs(noisy_speech)), itr,
                              sample_rate=config.fs)
-            clean_S = get_spectrogram(clean_speech[0:recon_speech.shape[0]])
-            noisy_S = get_spectrogram(noisy_speech[0:recon_speech.shape[0]])
+            clean_S = get_spectrogram(clean_speech)
+            noisy_S = get_spectrogram(noisy_speech)
 
             writer.add_image(name + '_spectrogram_ref' + '/clean', clean_S, itr)  # image_shape = (C, H, W)
             writer.add_image(name + '_spectrogram_ref' + '/noisy', noisy_S, itr)  # image_shape = (C, H, W)
 
-        enhanced_measure = utils.se_eval(clean_speech[0:recon_speech.shape[0]], recon_speech, float(config.fs))
+        enhanced_measure = utils.se_eval(clean_speech, recon_speech, float(config.fs))
         writer.add_scalars(name + '_speech_quality' + '/pesq', {'enhanced': enhanced_measure['pesq'],
                                                                 'ref': self.noisy_measure['pesq']}, itr)
         writer.add_scalars(name + '_speech_quality' + '/stoi', {'enhanced': enhanced_measure['stoi'],

@@ -5,6 +5,8 @@ import librosa
 import os
 import subprocess
 import matplotlib.pyplot as plt
+import config
+from multiprocessing import Process, Queue
 
 
 def se_eval(clean, noisy, fs):
@@ -239,3 +241,85 @@ def write_bin(data, max_val, file_dir):
 
 def du(path):
     return subprocess.check_output(['du', '-sh', path]).split()[0].decode('utf-8')
+
+
+def identity_trans(data):
+
+    data = np.asarray(data).astype(dtype=np.float32)
+
+    lpsd, phase = lpsd_dist(data, config.dist_num)
+    # lpsd, phase = get_powerphase(data, win_size, win_step, nfft)  # (freq, time)
+    # lpsd = np.transpose(np.expand_dims(lpsd, axis=2), (1, 0, 2))[:-1, :]
+    # phase = np.transpose(np.expand_dims(phase, axis=2), (1, 0, 2))[:-1, :]
+    result = get_recon(lpsd, phase, config.win_size, config.win_step, fs=config.fs)
+    return result
+
+
+def lpsd_dist(data, dist_num):
+
+    data = data.tolist()
+    data_list = chunkIt(data, dist_num)
+
+    phase = []
+    queue_list = []
+    procs = []
+
+    for queue_val in queue_list:
+        print(queue_val.empty())
+
+    for i, data in enumerate(data_list):
+        queue_list.append(Queue())  # define queues for saving the outputs of functions
+
+        procs.append(Process(target=get_lpsd, args=(
+            data, queue_list[i])))  # define process
+
+    for queue_val in queue_list:
+        print(queue_val.empty())
+
+    for p in procs:  # process start
+        p.start()
+
+    for queue_val in queue_list:
+        while queue_val.empty():
+            pass
+
+    for queue_val in queue_list:
+        print(queue_val.empty())
+
+    M_list = []
+
+    for i in range(dist_num):  # save results from queues and close queues
+        # while not queue_list[i].empty():
+        M_list.append(queue_list[i].get())
+        queue_list[i].close()
+        queue_list[i].join_thread()
+
+    for p in procs:  # close process
+        p.terminate()
+
+    result = np.concatenate(M_list, axis=0)
+    # result = np.asarray(M_list)
+    # print(result.shape)
+    # result = np.reshape(result, (-1, result.shape[2], result.shape[3]))
+
+    lpsd = np.transpose(result[:, :, 0], (1, 0))  # expand_dims for normalization (shape matching for broadcast)
+    phase = np.transpose(result[:, :, 1], (1, 0))
+
+    return lpsd, phase
+
+
+def get_lpsd(data, output):
+
+    data = np.asarray(data).astype(dtype=np.float32)
+    # nfft = np.int(2**(np.floor(np.log2(self._nperseg)+1)))
+
+    # _, _, Zxx = scipy.signal.stft(data, fs=fs, nperseg=self._nperseg, nfft=int(nfft))
+
+    lpsd, phase = get_powerphase(data, config.win_size, config.win_step, config.nfft)  # (freq, time)
+    lpsd = np.transpose(np.expand_dims(lpsd, axis=2), (1, 0, 2))[:-1, :]
+    phase = np.transpose(np.expand_dims(phase, axis=2), (1, 0, 2))[:-1, :]
+    result = np.concatenate((lpsd, phase), axis=2)
+    print("put start ")
+    output.put(result)
+    print("put done")
+
