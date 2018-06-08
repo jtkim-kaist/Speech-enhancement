@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import os, sys
 import glob
 import utils
 import librosa
@@ -164,9 +164,10 @@ class DataReader(object):
                 #     librosa.stft(data, hop_length=config.win_step,
                 #                  win_length=config.win_size, n_fft=config.nfft), ref=np.max)
                 # ld.specshow(S, y_axis='linear', hop_length=config.win_step, sr=config.fs)
-
-                feat = self.lpsd_dist(data, self._dist_num, is_patch=True)
-
+                if config.parallel:
+                    feat = self.lpsd_dist_p(data, self._dist_num, is_patch=True)
+                else:
+                    feat = self.lpsd_dist(data, self._dist_num, is_patch=True)
                 utils.write_bin(feat, np.max(np.abs(feat)), dataname)
                 feat_spec = {'shape': feat.shape, 'max': np.max(np.abs(feat))}
                 np.save(dataname.replace('.bin', ''), feat_spec)
@@ -177,8 +178,10 @@ class DataReader(object):
             data = np.load(input_file_dir)
 
             # data, _ = librosa.load(input_file_dir, config.fs)
-
-            feat = self.lpsd_dist(data, self._dist_num)
+            if config.parallel:
+                feat = self.lpsd_dist_p(data, self._dist_num)
+            else:
+                feat = self.lpsd_dist(data, self._dist_num)
 
         # feat shape: (num samples, config.time_width, config.freq_size, 1)
 
@@ -213,7 +216,11 @@ class DataReader(object):
                     feat = utils.read_raw(dataname).reshape(feat_shape) * np.float32(feat_max)
                 else:
                     data = utils.read_raw(self._output_file_list[i])
-                    feat = self.lpsd_dist(data, self._dist_num,
+                    if config.parallel:
+                        feat = self.lpsd_dist_p(data, self._dist_num,
+                                          is_patch=False)  # (The number of samples, config.freq_size, 1, 1)
+                    else:
+                        feat = self.lpsd_dist(data, self._dist_num,
                                           is_patch=False)  # (The number of samples, config.freq_size, 1, 1)
                     utils.write_bin(feat, np.max(np.abs(feat)), dataname)
                     feat_spec = {'shape': feat.shape, 'max': np.max(np.abs(feat))}
@@ -243,44 +250,89 @@ class DataReader(object):
 
     def lpsd_dist(self, data, dist_num, is_patch=True):
 
+        result = self.get_lpsd(data)
+
+        # result = np.asarray(M_list)
+        # print(result.shape)
+        # result = np.reshape(result, (-1, result.shape[2], result.shape[3]))
+
+        lpsd = np.expand_dims(result[:, :, 0], axis=2)  # expand_dims for normalization (shape matching for broadcast)
+
+        if not self._is_training:
+            self.phase.append(result[:, :, 1])
+
+        pad = np.expand_dims(np.zeros((int(config.time_width/2), lpsd.shape[1])), axis=2)  # pad for extracting the patches
+
+        if is_patch:
+            mean, std = self.norm_process(self._norm_dir + '/norm_noisy.mat')
+            lpsd = self._normalize(mean, std, lpsd)
+        else:
+            mean, std = self.norm_process(self._norm_dir + '/norm_noisy.mat')
+            lpsd = self._normalize(mean, std, lpsd)
+        # print(result.shape)
+
+        if is_patch:
+            lpsd = np.squeeze(np.concatenate((pad, lpsd, pad), axis=0))  # padding for patching
+            # print(result.shape)
+            lpsd = image.extract_patches_2d(lpsd, (config.time_width, lpsd.shape[1]))
+
+        lpsd = np.expand_dims(lpsd, axis=3)
+
+        return lpsd
+
+    def lpsd_dist_p(self, data, dist_num, is_patch=True):
+
         data = data.tolist()
-        data_list = utils.chunkIt(data, dist_num)
+        chunk_list = utils.chunkIt(data, dist_num)
+        data_list = []
+        for item in chunk_list:
+            if len(item) > 1:
+                data_list.append(item)
 
-        queue_list = []
-        procs = []
+        while True:
 
-        for queue_val in queue_list:
-            print(queue_val.empty())
+            queue_list = []
+            procs = []
 
-        for i, data in enumerate(data_list):
-            queue_list.append(Queue())  # define queues for saving the outputs of functions
+            for queue_val in queue_list:
+                print(queue_val.empty())
 
-            procs.append(Process(target=self.get_lpsd, args=(
-                data, queue_list[i])))  # define process
+            for i, data in enumerate(data_list):
+                queue_list.append(Queue())  # define queues for saving the outputs of functions
 
-        for queue_val in queue_list:
-            print(queue_val.empty())
+                procs.append(Process(target=self.get_lpsd_p, args=(
+                    data, queue_list[i])))  # define process
 
-        for p in procs:  # process start
-            p.start()
+            for queue_val in queue_list:
+                print(queue_val.empty())
 
-        for queue_val in queue_list:
-            while queue_val.empty():
-                pass
+            for p in procs:  # process start
+                p.start()
 
-        for queue_val in queue_list:
-            print(queue_val.empty())
+            for queue_val in queue_list:
+                while queue_val.empty():
+                    pass
 
-        M_list = []
+            for queue_val in queue_list:
+                print(queue_val.empty())
 
-        for i in range(dist_num):  # save results from queues and close queues
-            # while not queue_list[i].empty():
-            M_list.append(queue_list[i].get())
-            queue_list[i].close()
-            queue_list[i].join_thread()
+            M_list = []
 
-        for p in procs:  # close process
-            p.terminate()
+            for i in range(dist_num):  # save results from queues and close queues
+                # while not queue_list[i].empty():
+                get_time = time.time()
+                M_list.append(queue_list[i].get(timeout=3))
+                get_time = time.time() - get_time
+                queue_list[i].close()
+                queue_list[i].join_thread()
+
+            for p in procs:  # close process
+                p.terminate()
+
+            if get_time < 3:
+                break
+            else:
+                print('Some error occurred, restarting the lpsd extraction...')
 
         result = np.concatenate(M_list, axis=0)
         # result = np.asarray(M_list)
@@ -312,7 +364,7 @@ class DataReader(object):
         return lpsd
 
     @staticmethod
-    def get_lpsd(data, output):
+    def get_lpsd_p(data, output):
 
         data = np.asarray(data).astype(dtype=np.float32)
         # nfft = np.int(2**(np.floor(np.log2(self._nperseg)+1)))
@@ -327,6 +379,21 @@ class DataReader(object):
 
         output.put(result)
         print("put done")
+        sys.exit()
+
+    @staticmethod
+    def get_lpsd(data):
+
+        data = np.asarray(data).astype(dtype=np.float32)
+        # nfft = np.int(2**(np.floor(np.log2(self._nperseg)+1)))
+
+        # _, _, Zxx = scipy.signal.stft(data, fs=fs, nperseg=self._nperseg, nfft=int(nfft))
+
+        lpsd, phase = utils.get_powerphase(data, config.win_size, config.win_step, config.nfft)  # (freq, time)
+        lpsd = np.transpose(np.expand_dims(lpsd, axis=2), (1, 0, 2))[:-1, :]
+        phase = np.transpose(np.expand_dims(phase, axis=2), (1, 0, 2))[:-1, :]
+        result = np.concatenate((lpsd, phase), axis=2)
+        return result
 
     @staticmethod
     def _padding(inputs, batch_size):

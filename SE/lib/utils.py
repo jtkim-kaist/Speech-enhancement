@@ -2,7 +2,7 @@ import matlab.engine
 import tensorflow as tf
 import numpy as np
 import librosa
-import os
+import os, sys
 import subprocess
 import matplotlib.pyplot as plt
 import config
@@ -246,8 +246,11 @@ def du(path):
 def identity_trans(data):
 
     data = np.asarray(data).astype(dtype=np.float32)
+    if config.parallel:
+        lpsd, phase = lpsd_dist_p(data, config.dist_num)
+    else:
+        lpsd, phase = lpsd_dist(data)
 
-    lpsd, phase = lpsd_dist(data, config.dist_num)
     # lpsd, phase = get_powerphase(data, win_size, win_step, nfft)  # (freq, time)
     # lpsd = np.transpose(np.expand_dims(lpsd, axis=2), (1, 0, 2))[:-1, :]
     # phase = np.transpose(np.expand_dims(phase, axis=2), (1, 0, 2))[:-1, :]
@@ -255,7 +258,7 @@ def identity_trans(data):
     return result
 
 
-def lpsd_dist(data, dist_num):
+def lpsd_dist_p(data, dist_num):
 
     data = data.tolist()
     data_list = chunkIt(data, dist_num)
@@ -270,7 +273,7 @@ def lpsd_dist(data, dist_num):
     for i, data in enumerate(data_list):
         queue_list.append(Queue())  # define queues for saving the outputs of functions
 
-        procs.append(Process(target=get_lpsd, args=(
+        procs.append(Process(target=get_lpsd_p, args=(
             data, queue_list[i])))  # define process
 
     for queue_val in queue_list:
@@ -308,7 +311,7 @@ def lpsd_dist(data, dist_num):
     return lpsd, phase
 
 
-def get_lpsd(data, output):
+def get_lpsd_p(data, output):
 
     data = np.asarray(data).astype(dtype=np.float32)
     # nfft = np.int(2**(np.floor(np.log2(self._nperseg)+1)))
@@ -321,5 +324,28 @@ def get_lpsd(data, output):
     result = np.concatenate((lpsd, phase), axis=2)
     print("put start ")
     output.put(result)
-    print("put done")
+    print("shit done")
+    sys.exit()
 
+
+def lpsd_dist(data):
+
+    result = get_lpsd(data)
+    lpsd = np.transpose(result[:, :, 0], (1, 0))  # expand_dims for normalization (shape matching for broadcast)
+    phase = np.transpose(result[:, :, 1], (1, 0))
+
+    return lpsd, phase
+
+
+def get_lpsd(data):
+
+    data = np.asarray(data).astype(dtype=np.float32)
+    # nfft = np.int(2**(np.floor(np.log2(self._nperseg)+1)))
+
+    # _, _, Zxx = scipy.signal.stft(data, fs=fs, nperseg=self._nperseg, nfft=int(nfft))
+
+    lpsd, phase = get_powerphase(data, config.win_size, config.win_step, config.nfft)  # (freq, time)
+    lpsd = np.transpose(np.expand_dims(lpsd, axis=2), (1, 0, 2))[:-1, :]
+    phase = np.transpose(np.expand_dims(phase, axis=2), (1, 0, 2))[:-1, :]
+    result = np.concatenate((lpsd, phase), axis=2)
+    return result

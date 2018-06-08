@@ -21,7 +21,7 @@ device = '/gpu:1'
 
 # logs_dir = os.path.abspath('../logs')
 
-dist_num = int(8)
+dist_num = int(4)
 
 max_epoch = int(2e6)
 
@@ -34,3 +34,4 @@ summary_step = int(500)  # 3000
 summary_fnum = int(5)
 
 mode = "fnn"
+parallel = False

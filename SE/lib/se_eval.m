@@ -6,6 +6,7 @@ function [pesq, stoi_val, segsnr_mean, lsd] = se_eval(clean, noisy, fs)
 res = pesq_mex_vec(clean, noisy, fs);
 pesq=mos2pesq(res);
 
+
 stoi_val = stoi(double(clean), double(noisy), fs);
 
 clean     = clean - mean(clean);
