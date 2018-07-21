@@ -49,7 +49,7 @@ class Summary(object):
         self.logs_dir = logs_dir
         np.save(self.temp_dir, self.noisy_speech)
 
-    def do_summary(self, m_summary, sess, itr):
+    def do_summary(self, m_summary, sess, eng, writer, itr):
 
         valid_path = self.valid_path
         clean_speech = self.clean_speech
@@ -61,8 +61,6 @@ class Summary(object):
         temp_dir = self.temp_dir
         name = self.name
         logs_dir = self.logs_dir
-
-        writer = SummaryWriter(log_dir=self.logs_dir + '/summary')
 
         summary_dr = dr.DataReader(temp_dir, '', valid_path["norm_path"], dist_num=config.dist_num, is_training=False,
                                    is_shuffle=False)
@@ -101,9 +99,9 @@ class Summary(object):
         # write summary
 
         if itr == config.summary_step:
-            writer.close()
+
             self.noisy_measure = utils.se_eval(clean_speech,
-                                          np.squeeze(noisy_speech), float(config.fs))
+                                          np.squeeze(noisy_speech), float(config.fs), eng)
             summary_fname = tf.summary.text(name + '_filename', tf.convert_to_tensor(self.noisy_dir))
 
             if name == 'train':
@@ -146,13 +144,15 @@ class Summary(object):
             else:
                 summary_op = tf.summary.merge([summary_fname])
 
-            with tf.Session() as sess:
+            sess_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+            sess_config.gpu_options.allow_growth = True
+
+            with tf.Session(config=sess_config) as sess:
                 summary_writer = tf.summary.FileWriter(logs_dir + '/summary/text')
                 text = sess.run(summary_op)
                 summary_writer.add_summary(text, 1)
-            summary_writer.close()
 
-            writer = SummaryWriter(log_dir=logs_dir + '/summary')
+            summary_writer.close()
 
             writer.add_audio(name + '_audio_ref' + '/clean', clean_speech
                              /np.max(np.abs(clean_speech)), itr,
@@ -166,7 +166,7 @@ class Summary(object):
             writer.add_image(name + '_spectrogram_ref' + '/clean', clean_S, itr)  # image_shape = (C, H, W)
             writer.add_image(name + '_spectrogram_ref' + '/noisy', noisy_S, itr)  # image_shape = (C, H, W)
 
-        enhanced_measure = utils.se_eval(clean_speech, recon_speech, float(config.fs))
+        enhanced_measure = utils.se_eval(clean_speech, recon_speech, float(config.fs), eng)
         writer.add_scalars(name + '_speech_quality' + '/pesq', {'enhanced': enhanced_measure['pesq'],
                                                                 'ref': self.noisy_measure['pesq']}, itr)
         writer.add_scalars(name + '_speech_quality' + '/stoi', {'enhanced': enhanced_measure['stoi'],
@@ -180,7 +180,6 @@ class Summary(object):
                          itr, sample_rate=config.fs)
         enhanced_S = get_spectrogram(recon_speech)
         writer.add_image(name + '_spectrogram_enhanced' + '/enhanced', enhanced_S, itr)  # image_shape = (C, H, W)
-        writer.close()
 
 
 @contextmanager
@@ -193,8 +192,9 @@ def elapsed_timer():
 
 
 def get_spectrogram(speech):
-    S = librosa.amplitude_to_db(librosa.stft(speech, hop_length=config.win_step,
-                                             win_length=config.win_size, n_fft=config.nfft), ref=np.max)
+
+    S = librosa.amplitude_to_db(librosa.core.magphase(librosa.stft(speech, hop_length=config.win_step,
+                                             win_length=config.win_size, n_fft=config.nfft))[0], ref=np.max)
     S = prepare_spec_image(S)
     return S
 
@@ -283,6 +283,7 @@ def main(argv=None):
     print("Setting up summary op...")
 
     writer = SummaryWriter(log_dir=logs_dir + '/summary')
+    eng = matlab.engine.start_matlab()
 
     print("Done")
 
@@ -350,15 +351,16 @@ def main(argv=None):
                 train_summary = Summary(train_path, logs_dir, name='train')
                 valid_summary = Summary(valid_path, logs_dir, name='valid')
 
-                train_summary.do_summary(m_valid, sess, itr)
-                valid_summary.do_summary(m_valid, sess, itr)
+                train_summary.do_summary(m_valid, sess, eng, writer, itr)
+                valid_summary.do_summary(m_valid, sess, eng, writer, itr)
 
             else:
 
-                train_summary.do_summary(m_valid, sess, itr)
-                valid_summary.do_summary(m_valid, sess, itr)
+                train_summary.do_summary(m_valid, sess, eng, writer, itr)
+                valid_summary.do_summary(m_valid, sess, eng, writer, itr)
 
     writer.close()
+    eng.exit()
 
 
 if __name__ == "__main__":

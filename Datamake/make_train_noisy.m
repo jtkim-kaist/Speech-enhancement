@@ -65,6 +65,6 @@ for k = 1:1:aug
     fclose(fid_file); 
 end
 
-
+delete(gcp);
 
     

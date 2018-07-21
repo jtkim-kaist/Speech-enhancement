@@ -9,9 +9,8 @@ import config
 from multiprocessing import Process, Queue
 
 
-def se_eval(clean, noisy, fs):
+def se_eval(clean, noisy, fs, eng):
 
-    eng = matlab.engine.start_matlab()
     clean = matlab.double(clean.tolist())
     noisy = matlab.double(noisy.tolist())
     pesq, stoi, ssnr, lsd = eng.se_eval(clean, noisy, fs, nargout=4)

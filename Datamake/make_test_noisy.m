@@ -66,3 +66,5 @@ end
 %     fclose(fid_txt);
 % 
 % end
+
+delete(gcp)

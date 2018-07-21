@@ -130,7 +130,7 @@ def fnctot_std(input_file_list, dist_num, mean_dic):
 if __name__ == '__main__':
 
     # calc_norm()
-    distribution_num = 8
+    distribution_num = 1
 
     train_path = os.path.abspath('./data/train/noisy')
     input_file_list = sorted(glob.glob(train_path + '/*.raw'))
