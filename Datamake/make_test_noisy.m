@@ -2,8 +2,8 @@ clc
 clear
 rng(0)  % seed initialization
 
-system('rm -rf ../SE/data/train/noisy/*');
-system('rm -rf ../SE/data/train/clean/*');
+system('rm -rf ../SE/data/test/noisy/*');
+system('rm -rf ../SE/data/test/clean/*');
 
 timit_list = dirPlus('./speech/timit_coretest', 'FileFilter', '\.(wav|WAV)$');
 noise_list = dirPlus('./noise/NOISEX-92_16000');
