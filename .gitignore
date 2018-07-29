@@ -1,2 +1,3 @@
-./SE/lib/__pycache__/*
+./SE/lib/__pycache__/
+./SE/__pycache__/
 *.swp
