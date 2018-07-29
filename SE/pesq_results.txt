@@ -1,0 +1,7 @@
+REFERENCE	 DEGRADED	 PESQMOS	 MOSLQO	 SAMPLE_FREQ	 MODE
+/tmp/tpad4ba0a6_e141_4601_8ce4_6a6a309dc68b.wav	 /tmp/tp1fd139e0_cc86_4c18_be51_91ccb6e067a1.wav	 2.157	 1.767	 8000	nb
+/tmp/tpb7e78423_5dd7_4166_a793_b5ffb62e8a1a.wav	 /tmp/tpb6f89776_d893_4fea_9d37_08aced705c0c.wav	 2.221	 1.828	 8000	nb
+/tmp/tpe8256f17_de70_4c56_971e_95dad0acdcf1.wav	 /tmp/tpbf46ba03_f82f_4435_b1d5_361358dcac5c.wav	 1.778	 1.474	 8000	nb
+/tmp/tpeb9bce49_b7f9_4cf7_a87a_ab08741d49fd.wav	 /tmp/tpef5c2cfc_fa56_49b9_a46c_6282eec9161e.wav	 1.830	 1.508	 8000	nb
+/tmp/tp70dbb8b1_9cee_40af_b494_f86f8212511a.wav	 /tmp/tpfbcf1b7c_b4d2_4bcf_b029_519c91afa3bc.wav	 2.150	 1.760	 8000	nb
+/tmp/tp9652f16a_835a_4db6_a10a_61a8c5019d7a.wav	 /tmp/tpd029a96c_73cd_460e_a4f4_c004482dcb0b.wav	 1.993	 1.626	 8000	nb

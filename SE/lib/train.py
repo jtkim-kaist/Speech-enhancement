@@ -64,30 +64,25 @@ class Summary(object):
 
         summary_dr = dr.DataReader(temp_dir, '', valid_path["norm_path"], dist_num=config.dist_num, is_training=False,
                                    is_shuffle=False)
-        pred = []
 
         while True:
 
-            summary_inputs, summary_labels = summary_dr.next_batch(config.batch_size)
+            summary_inputs, summary_labels, summary_inphase, summary_outphase = summary_dr.whole_batch(summary_dr.num_samples)
 
             feed_dict = {m_summary.inputs: summary_inputs, m_summary.labels: summary_labels, m_summary.keep_prob: 1.0}
 
-            pred_temp = sess.run(m_summary.pred, feed_dict=feed_dict)
-
-            pred.append(pred_temp)
+            pred = sess.run(m_summary.pred, feed_dict=feed_dict)
 
             if summary_dr.file_change_checker():
-                phase = summary_dr.phase[0]
 
                 lpsd = np.expand_dims(
-                    np.reshape(np.concatenate(pred, axis=0), [-1, config.freq_size])[0:phase.shape[0], :],
-                    axis=2)
+                    np.reshape(pred, [-1, config.freq_size]), axis=2)
 
                 mean, std = summary_dr.norm_process(valid_path["norm_path"] + '/norm_noisy.mat')
 
                 lpsd = np.squeeze((lpsd * std * 1.18) + mean)  # denorm
 
-                recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(phase, (1, 0)),
+                recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(summary_inphase, (1, 0)),
                                                win_size=config.win_size, win_step=config.win_step, fs=config.fs)
 
                 # plt.plot(recon_speech)
@@ -216,18 +211,12 @@ def do_validation(m_valid, sess, valid_path):
 
     while True:
 
-        # valid_inputs, valid_labels = valid_dr.next_batch(config.batch_size)
-        valid_inputs, valid_labels = valid_dr.next_batch(config.batch_size)
+        valid_inputs, valid_labels, valid_inphase, valid_outphase = valid_dr.whole_batch(valid_dr.num_samples)
 
-        feed_dict = {m_valid.inputs: valid_inputs, m_valid.labels: valid_labels, m_valid.keep_prob: 1.0}
+        feed_dict = {m_valid.inputs: valid_inputs, m_valid.labels: valid_labels,
+                     m_valid.keep_prob: 1.0}
 
-        # valid_cost, valid_softpred, valid_raw_labels\
-        #     = sess.run([m_valid.cost, m_valid.softpred, m_valid.raw_labels], feed_dict=feed_dict)
-        #
-        # fpr, tpr, thresholds = metrics.roc_curve(valid_raw_labels, valid_softpred, pos_label=1)
-        # valid_auc = metrics.auc(fpr, tpr)
-
-        valid_cost = sess.run(m_valid.raw_cost, feed_dict=feed_dict)
+        valid_cost = sess.run(m_valid.cost, feed_dict=feed_dict)
         valid_cost_list.append(np.expand_dims(valid_cost, axis=1))
 
         if valid_dr.file_change_checker():
@@ -239,6 +228,7 @@ def do_validation(m_valid, sess, valid_path):
                 break
 
     valid_cost_list = np.concatenate(valid_cost_list, axis=0)
+
     total_avg_valid_cost = np.asscalar(np.mean(valid_cost_list))
 
     return total_avg_valid_cost
@@ -254,9 +244,17 @@ def main(argv=None):
     train_output_path = argv[0] + '/data/train/clean'
     norm_path = argv[0] + '/data/train/norm'
 
+    # train_input_path = '/home/jtkim/hdd3/github/SE_data/data/train/noisy'
+    # train_output_path = '/home/jtkim/hdd3/github/SE_data/data/train/clean'
+    # norm_path = '/home/jtkim/hdd3/github/SE_data/data/train/norm'
+
     # set valid path
     valid_input_path = argv[0] + '/data/valid/noisy'
     valid_output_path = argv[0] + '/data/valid/clean'
+
+    # valid_input_path = '/home/jtkim/hdd3/github/SE_data/data/valid/noisy'
+    # valid_output_path = '/home/jtkim/hdd3/github/SE_data/data/valid/clean'
+
     logs_dir = argv[1]
     #                               Graph Part                               #
 
@@ -319,7 +317,7 @@ def main(argv=None):
     for itr in range(config.max_epoch):
 
         start_time = time.time()
-        train_inputs, train_labels = train_dr.next_batch(config.batch_size)
+        train_inputs, train_labels, train_inphase, train_outphase = train_dr.next_batch(config.batch_size)
         feed_dict = {m_train.inputs: train_inputs, m_train.labels: train_labels, m_train.keep_prob: config.keep_prob}
         sess.run(m_train.train_op, feed_dict=feed_dict)
         elapsed_time = time.time() - start_time

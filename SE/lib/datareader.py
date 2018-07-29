@@ -16,7 +16,8 @@ import librosa.display as ld
 
 class DataReader(object):
 
-    def __init__(self, input_dir, output_dir, norm_dir, dist_num, is_training=True, is_shuffle=True, is_val=False):
+    def __init__(self, input_dir, output_dir, norm_dir, dist_num, is_training=True, is_shuffle=True, is_val=False,
+                 is_summary=False):
         # is_training: True (training, validation)
         # is_training: False (test)
 
@@ -36,7 +37,9 @@ class DataReader(object):
             self._input_file_list = sorted(glob.glob(input_dir+'/*.raw'))
         else:
             self._input_file_list = [input_dir]  # wave directory
-            self.phase = []  # phase for reconstruction
+        if is_summary:
+            self._input_file_list = [input_dir]  # wave directory
+        self.phase = []  # phase for reconstruction
         if is_training:
             self._output_file_list = sorted(glob.glob(output_dir+'/*.raw'))
 
@@ -46,16 +49,17 @@ class DataReader(object):
         self._start_idx = 0
 
         self._is_val = is_val
+        self._is_summary = is_summary
         self.lb = False
         self.eof = False
         self.file_change = False
         self.num_samples = 0
 
-        self._inputs = self._inputs = self._read_input(
+        self._inputs, self._input_phase = self._read_input(
             self._input_file_list[self._num_file])  # (batch_size, time, freq, 1)
 
         if self._is_training:
-            self._outputs = self._outputs = self._read_output()  # (batch_size, freq)
+            self._outputs, self._output_phase = self._read_output()  # (batch_size, freq)
 
             assert np.shape(self._inputs)[0] == np.shape(self._outputs)[0],\
                 ("# samples is not matched between input: %d and output: %d files"
@@ -88,11 +92,14 @@ class DataReader(object):
         if self._start_idx + batch_size > self.num_samples:
 
             inputs = self._inputs[self._start_idx:, :]
+            input_phase = self._input_phase[self._start_idx:, :]
 
             if self._is_training:
                 outputs = self._outputs[self._start_idx:, :]
+                output_phase = self._output_phase[self._start_idx:, :]
             else:
                 outputs = np.zeros((inputs.shape[0], inputs.shape[2]))
+                output_phase = np.zeros((inputs.shape[0], inputs.shape[2]))
 
             self._start_idx = 0
             self.file_change = True
@@ -105,28 +112,68 @@ class DataReader(object):
                     pass
                 else:
                     self._num_file = 0
-                    self._inputs = self._read_input(
+                    self._inputs, self._input_phase = self._read_input(
                         self._input_file_list[self._num_file])  # (batch_size, time, freq, 1)
                     if self._is_training:
-                        self._outputs = self._read_output()
+                        self._outputs, self._output_phase = self._read_output()
             else:
                 self.eof = False
-                self._inputs = self._read_input(self._input_file_list[self._num_file])  # (batch_size, time, freq, 1)
+                self._inputs, self._input_phase = self._read_input(self._input_file_list[self._num_file])  # (batch_size, time, freq, 1)
                 if self._is_training:
-                    self._outputs = self._read_output()
+                    self._outputs, self._output_phase = self._read_output()
 
         else:
             self.file_change = False
 
             inputs = self._inputs[self._start_idx:self._start_idx + batch_size, :]
+            input_phase = self._input_phase[self._start_idx:self._start_idx + batch_size, :]
+
             if self._is_training:
                 outputs = self._outputs[self._start_idx:self._start_idx + batch_size, :]
+                output_phase = self._output_phase[self._start_idx:self._start_idx + batch_size, :]
             else:
                 outputs = np.zeros((inputs.shape[0], inputs.shape[2]))
+                output_phase = np.zeros((inputs.shape[0], inputs.shape[2]))
 
             self._start_idx += batch_size
 
-        return inputs, outputs
+        return inputs, outputs, input_phase, output_phase
+
+    def whole_batch(self, batch_size):
+
+        self._batch_size = batch_size
+
+        inputs = self._inputs
+        input_phase = self._input_phase
+
+        if self._is_training:
+            outputs = self._outputs
+            output_phase = self._output_phase
+        else:
+            outputs = np.zeros((inputs.shape[0], inputs.shape[2]))
+            output_phase = np.zeros((inputs.shape[0], inputs.shape[2]))
+
+        self.file_change = True
+        self._num_file += 1
+
+        if self._num_file > self._file_len - 1:  # final file check
+            self.eof = True
+
+            if self._is_val:
+                pass
+            else:
+                self._num_file = 0
+                self._inputs, self._input_phase = self._read_input(
+                    self._input_file_list[self._num_file])  # (batch_size, time, freq, 1)
+                if self._is_training:
+                    self._outputs, self._output_phase = self._read_output()
+        else:
+            self.eof = False
+            self._inputs, self._input_phase = self._read_input(self._input_file_list[self._num_file])  # (batch_size, time, freq, 1)
+            if self._is_training:
+                self._outputs, self._output_phase = self._read_output()
+
+        return inputs, outputs, input_phase, output_phase
 
     @staticmethod
     def _normalize(mean, std, x):
@@ -149,9 +196,13 @@ class DataReader(object):
                 # print("num_file: %.2d load..." % self._num_file)
 
                 feat_spec = np.load(dataname.replace('.bin', '.npy')).item()
-                feat_shape = feat_spec['shape']
+                feat_size = feat_spec['feat_size']
+                feat_shape = feat_spec['feat_shape']
+                phase_shape = feat_spec['phase_shape']
                 feat_max = feat_spec['max']
-                feat = utils.read_raw(dataname).reshape(feat_shape) * np.float32(feat_max)
+                feat_phase = utils.read_raw(dataname) * np.float32(feat_max)
+                feat = feat_phase[0:feat_size].reshape(feat_shape)
+                phase = feat_phase[feat_size:].reshape(phase_shape)
                 # print("num_file: %.2d load... done" % self._num_file)
 
             else:
@@ -165,11 +216,13 @@ class DataReader(object):
                 #                  win_length=config.win_size, n_fft=config.nfft), ref=np.max)
                 # ld.specshow(S, y_axis='linear', hop_length=config.win_step, sr=config.fs)
                 if config.parallel:
-                    feat = self.lpsd_dist_p(data, self._dist_num, is_patch=True)
+                    feat, phase = self.lpsd_dist_p(data, self._dist_num, is_patch=True)
                 else:
-                    feat = self.lpsd_dist(data, self._dist_num, is_patch=True)
-                utils.write_bin(feat, np.max(np.abs(feat)), dataname)
-                feat_spec = {'shape': feat.shape, 'max': np.max(np.abs(feat))}
+                    feat, phase = self.lpsd_dist(data, self._dist_num, is_patch=True)
+                feat_size = feat.size
+                feat_phase = np.concatenate((feat.reshape(-1), phase.reshape(-1)))
+                utils.write_bin(feat_phase, np.max(np.abs(feat_phase)), dataname)
+                feat_spec = {'feat_size': feat_size, 'phase_shape': phase.shape, 'feat_shape': feat.shape, 'max': np.max(np.abs(feat_phase))}
                 np.save(dataname.replace('.bin', ''), feat_spec)
 
                 print("num_file: %.2d feature extraction... done." % self._num_file)
@@ -179,9 +232,9 @@ class DataReader(object):
 
             # data, _ = librosa.load(input_file_dir, config.fs)
             if config.parallel:
-                feat = self.lpsd_dist_p(data, self._dist_num)
+                feat, phase = self.lpsd_dist_p(data, self._dist_num)
             else:
-                feat = self.lpsd_dist(data, self._dist_num)
+                feat, phase = self.lpsd_dist(data, self._dist_num)
 
         # feat shape: (num samples, config.time_width, config.freq_size, 1)
 
@@ -197,7 +250,10 @@ class DataReader(object):
 
         self.num_samples = np.shape(feat)[0]
 
-        return feat
+        if self._is_val:
+            phase = np.zeros(feat.shape)
+
+        return feat, phase
 
     def _read_output(self):
 
@@ -211,19 +267,28 @@ class DataReader(object):
                            '/' + os.path.basename(self._output_file_list[i]).split('.')[0] + '.bin'
                 if os.path.exists(dataname):
                     feat_spec = np.load(dataname.replace('.bin', '.npy')).item()
-                    feat_shape = feat_spec['shape']
+                    feat_size = feat_spec['feat_size']
+                    feat_shape = feat_spec['feat_shape']
+                    phase_shape = feat_spec['phase_shape']
                     feat_max = feat_spec['max']
-                    feat = utils.read_raw(dataname).reshape(feat_shape) * np.float32(feat_max)
+                    feat_phase = utils.read_raw(dataname) * np.float32(feat_max)
+                    feat = feat_phase[0:feat_size].reshape(feat_shape)
+                    phase = feat_phase[feat_size:].reshape(phase_shape)
+
                 else:
                     data = utils.read_raw(self._output_file_list[i])
                     if config.parallel:
                         feat = self.lpsd_dist_p(data, self._dist_num,
                                           is_patch=False)  # (The number of samples, config.freq_size, 1, 1)
                     else:
-                        feat = self.lpsd_dist(data, self._dist_num,
+                        feat, phase = self.lpsd_dist(data, self._dist_num,
                                           is_patch=False)  # (The number of samples, config.freq_size, 1, 1)
-                    utils.write_bin(feat, np.max(np.abs(feat)), dataname)
-                    feat_spec = {'shape': feat.shape, 'max': np.max(np.abs(feat))}
+                    feat_size = feat.size
+                    feat_phase = np.concatenate((feat.reshape(-1), phase.reshape(-1)))
+                    feat_spec = {'feat_size': feat_size, 'phase_shape': phase.shape, 'feat_shape': feat.shape,
+                                 'max': np.max(np.abs(feat_phase))}
+
+                    utils.write_bin(feat_phase, np.max(np.abs(feat_phase)), dataname)
                     np.save(dataname.replace('.bin', ''), feat_spec)
                 # plt.subplot(212)
                 # S = librosa.amplitude_to_db(
@@ -246,7 +311,7 @@ class DataReader(object):
 
             feat = feat[self._perm_indx, :]
 
-        return np.squeeze(feat)
+        return np.squeeze(feat), phase
 
     def lpsd_dist(self, data, dist_num, is_patch=True):
 
@@ -277,8 +342,9 @@ class DataReader(object):
             lpsd = image.extract_patches_2d(lpsd, (config.time_width, lpsd.shape[1]))
 
         lpsd = np.expand_dims(lpsd, axis=3)
+        phase = result[:, :, 1]
 
-        return lpsd
+        return lpsd, phase
 
     def lpsd_dist_p(self, data, dist_num, is_patch=True):
 
@@ -341,8 +407,8 @@ class DataReader(object):
 
         lpsd = np.expand_dims(result[:, :, 0], axis=2)  # expand_dims for normalization (shape matching for broadcast)
 
-        if not self._is_training:
-            self.phase.append(result[:, :, 1])
+        # if not self._is_training:
+        self.phase.append(result[:, :, 1])
 
         pad = np.expand_dims(np.zeros((int(config.time_width/2), lpsd.shape[1])), axis=2)  # pad for extracting the patches
 
