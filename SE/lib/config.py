@@ -16,6 +16,7 @@ lrDecayRate = .99  # 0.99
 lrDecayFreq = 2000
 
 keep_prob = 0.9
+global_std = 1.18
 
 device = '/gpu:1'
 
@@ -23,7 +24,7 @@ device = '/gpu:1'
 
 dist_num = int(4)
 
-max_epoch = int(2e6)
+max_epoch = int(1e6)
 
 batch_size = int(256)
 

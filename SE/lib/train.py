@@ -80,7 +80,7 @@ class Summary(object):
 
                 mean, std = summary_dr.norm_process(valid_path["norm_path"] + '/norm_noisy.mat')
 
-                lpsd = np.squeeze((lpsd * std * 1.18) + mean)  # denorm
+                lpsd = np.squeeze((lpsd * std * config.global_std) + mean)  # denorm
 
                 recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(summary_inphase, (1, 0)),
                                                win_size=config.win_size, win_step=config.win_step, fs=config.fs)
@@ -244,16 +244,16 @@ def main(argv=None):
     train_output_path = argv[0] + '/data/train/clean'
     norm_path = argv[0] + '/data/train/norm'
 
-    # train_input_path = '/home/jtkim/hdd3/github/SE_data/data/train/noisy'
-    # train_output_path = '/home/jtkim/hdd3/github/SE_data/data/train/clean'
-    # norm_path = '/home/jtkim/hdd3/github/SE_data/data/train/norm'
+    # train_input_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy'
+    # train_output_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean'
+    # norm_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/norm'
 
     # set valid path
     valid_input_path = argv[0] + '/data/valid/noisy'
     valid_output_path = argv[0] + '/data/valid/clean'
 
-    # valid_input_path = '/home/jtkim/hdd3/github/SE_data/data/valid/noisy'
-    # valid_output_path = '/home/jtkim/hdd3/github/SE_data/data/valid/clean'
+    # valid_input_path = '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy'
+    # valid_output_path = '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean'
 
     logs_dir = argv[1]
     #                               Graph Part                               #

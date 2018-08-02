@@ -20,83 +20,81 @@ import time
 import librosa
 import librosa.display as ld
 import get_norm as gn
-
 from time import sleep
 
 
-def speech_enhance(wav_dir, graph_name):
+class SE(object):
 
-    noisy_speech = utils.read_raw(wav_dir)
+    def __init__(self, graph_name, norm_path):
 
-    temp_dir = './temp/temp.npy'
-    np.save(temp_dir, noisy_speech)
-    graph = gt.load_graph(graph_name)
-    norm_path = os.path.abspath('./data/train/norm')
+        graph = gt.load_graph(graph_name)
 
-    test_dr = dr.DataReader(temp_dir, '', norm_path, dist_num=config.dist_num, is_training=False, is_shuffle=False)
+        self.node_inputs = graph.get_tensor_by_name('prefix/model_1/inputs:0')
+        self.node_labels = graph.get_tensor_by_name('prefix/model_1/labels:0')
+        self.node_keep_prob = graph.get_tensor_by_name('prefix/model_1/keep_prob:0')
+        self.node_prediction = graph.get_tensor_by_name('prefix/model_1/pred:0')
 
-    node_inputs = graph.get_tensor_by_name('prefix/model_1/inputs:0')
-    node_labels = graph.get_tensor_by_name('prefix/model_1/labels:0')
-    node_keep_prob = graph.get_tensor_by_name('prefix/model_1/keep_prob:0')
-    node_prediction = graph.get_tensor_by_name('prefix/model_1/pred:0')
+        sess_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+        sess_config.gpu_options.allow_growth = True
 
-    pred = []
-    lab = []
+        self.sess = tf.Session(config=sess_config, graph=graph)
+        self.norm_path = norm_path
 
-    sess_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
-    sess_config.gpu_options.allow_growth = True
+    def enhance(self, wav_dir):
 
-    while True:
+        noisy_speech = utils.read_raw(wav_dir)
+        temp_dir = './temp/temp.npy'
+        np.save(temp_dir, noisy_speech)
 
-        test_inputs, test_labels = test_dr.next_batch(config.test_batch_size)
+        test_dr = dr.DataReader(temp_dir, '', self.norm_path, dist_num=config.dist_num, is_training=False, is_shuffle=False)
+        mean, std = test_dr.norm_process(self.norm_path + '/norm_noisy.mat')
 
-        feed_dict = {node_inputs: test_inputs, node_labels: test_labels, node_keep_prob: 1.0}
+        while True:
+            test_inputs, test_labels, test_inphase, test_outphase = test_dr.whole_batch(test_dr.num_samples)
 
-        with tf.Session(graph=graph, config=sess_config) as sess:
-            pred_temp, lab_temp = sess.run([node_prediction, node_labels], feed_dict=feed_dict)
+            feed_dict = {self.node_inputs: test_inputs, self.node_labels: test_labels, self.node_keep_prob: 1.0}
 
-        pred.append(pred_temp)
-        lab.append(lab_temp)
+            pred = self.sess.run(self.node_prediction, feed_dict=feed_dict)
 
-        # print(test_dr.file_change_checker())
-        if test_dr.file_change_checker():
-            print(wav_dir)
-            phase = test_dr.phase[0]
+            if test_dr.file_change_checker():
+                print(wav_dir)
 
-            lpsd = np.expand_dims(np.reshape(np.concatenate(pred, axis=0), [-1, config.freq_size])[0:phase.shape[0], :], axis=2)
+                lpsd = np.expand_dims(np.reshape(pred, [-1, config.freq_size]), axis=2)
 
-            mean, std = test_dr.norm_process(norm_path + '/norm_noisy.mat')
+                lpsd = np.squeeze((lpsd * std * config.global_std) + mean)
 
-            lpsd = np.squeeze((lpsd * std) + mean)  # denorm
+                recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(test_inphase, (1, 0)),
+                                               win_size=config.win_size, win_step=config.win_step, fs=config.fs)
 
-            recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(phase, (1, 0)),
-                                           win_size=config.win_size, win_step=config.win_step, fs=config.fs)
+                test_dr.reader_initialize()
 
-            # plt.plot(recon_speech)
-            # plt.show()
-            # lab = np.reshape(np.asarray(lab), [-1, 1])
-            test_dr.reader_initialize()
-            break
+                break
 
-    return recon_speech
+        file_dir = save_dir + '/' + os.path.basename(wav_dir).replace('noisy', 'enhanced').replace('raw', 'wav')
+        librosa.output.write_wav(file_dir, recon_speech, config.fs)
+
+        return recon_speech
 
 
 if __name__ == '__main__':
 
     clean_dir = os.path.abspath('./data/test/clean')
     noisy_dir = os.path.abspath('./data/test/noisy')
-    logs_dir = os.path.abspath('./logs' + '/logs_' + "2018-06-04-02-06-49")
-    model_dir = os.path.abspath('./enhanced_wav_valid/enhanced_model')
-    save_dir = os.path.abspath('./enhanced_wav_valid')
+    norm_dir = os.path.abspath('./data/train/norm')
 
-    gs.freeze_graph(logs_dir, model_dir, 'model_1/pred,model_1/labels,model_1/cost')
+    # clean_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/clean'
+    # noisy_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/noisy'
+    # norm_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/train/norm'
 
-    noisy_list = sorted(glob.glob(noisy_dir + '/*.raw'))
-    clean_list = sorted(glob.glob(clean_dir + '/*.raw'))
+    # logs_dir = os.path.abspath('./logs' + '/logs_' + "2018-06-04-02-06-49")
+    save_dir = os.path.abspath('./enhanced_wav')
+    model_dir = os.path.abspath('./saved_model')
+    # gs.freeze_graph(logs_dir, model_dir, 'model_1/pred,model_1/labels,model_1/cost')
 
     graph_name = sorted(glob.glob(model_dir + '/*.pb'))[-1]
 
-    norm_path = os.path.abspath('./data/train/norm')
+    noisy_list = sorted(glob.glob(noisy_dir + '/*.raw'))
+    clean_list = sorted(glob.glob(clean_dir + '/*.raw'))
 
     noisy_result = {'noisy_pesq':np.zeros((10, 3, 15)),
                      'noisy_stoi':np.zeros((10, 3, 15)),
@@ -107,6 +105,10 @@ if __name__ == '__main__':
                      'enhanced_stoi':np.zeros((10, 3, 15)),
                      'enhanced_ssnr':np.zeros((10, 3, 15)),
                      'enhanced_lsd':np.zeros((10, 3, 15))}
+
+    se = SE(graph_name=graph_name, norm_path=norm_dir)
+
+    eng = matlab.engine.start_matlab()
 
     for noisy_dir in noisy_list:
 
@@ -120,12 +122,13 @@ if __name__ == '__main__':
                 break
         print(noisy_dir)
 
-        recon_speech = speech_enhance(noisy_dir, graph_name)
+        # recon_speech = speech_enhance(noisy_dir, graph_name)
+        recon_speech = se.enhance(noisy_dir)
         noisy_speech = utils.identity_trans(utils.read_raw(noisy_dir))
         clean_speech = utils.identity_trans(utils.read_raw(clean_dir))
 
-        noisy_measure = utils.se_eval(clean_speech, noisy_speech, float(config.fs))
-        enhanced_measure = utils.se_eval(clean_speech, recon_speech, float(config.fs))
+        noisy_measure = utils.se_eval(clean_speech, noisy_speech, float(config.fs), eng)
+        enhanced_measure = utils.se_eval(clean_speech, recon_speech, float(config.fs), eng)
 
         noisy_result['noisy_pesq'][file_num, snr_num, noise_num] = noisy_measure['pesq']
         noisy_result['noisy_stoi'][file_num, snr_num, noise_num] = noisy_measure['stoi']
@@ -150,5 +153,5 @@ if __name__ == '__main__':
     scipy.io.savemat('./test_result/noisy_result.mat', noisy_result)
     scipy.io.savemat('./test_result/enhanced_result.mat', enhance_result)
 
-    # file_dir = save_dir + '/' + os.path.basename(wav_dir).replace('noisy', 'enhanced')
-        # utils.write_bin(recon_speech, np.max(np.abs(recon_speech)), file_dir)
+    eng.exit()
+
