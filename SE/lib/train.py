@@ -282,7 +282,7 @@ def main(argv=None):
 
     writer = SummaryWriter(log_dir=logs_dir + '/summary')
     eng = matlab.engine.start_matlab()
-
+    eng.addpath(eng.genpath('.'))
     print("Done")
 
     #                               Model Save Part                           #

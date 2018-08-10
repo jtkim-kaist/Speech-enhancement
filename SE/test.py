@@ -31,7 +31,8 @@ class SE(object):
 
         self.node_inputs = graph.get_tensor_by_name('prefix/model_1/inputs:0')
         self.node_labels = graph.get_tensor_by_name('prefix/model_1/labels:0')
-        self.node_keep_prob = graph.get_tensor_by_name('prefix/model_1/keep_prob:0')
+        if config.mode != 'lstm' and config.mode != 'fcn':
+            self.node_keep_prob = graph.get_tensor_by_name('prefix/model_1/keep_prob:0')
         self.node_prediction = graph.get_tensor_by_name('prefix/model_1/pred:0')
 
         sess_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
@@ -51,8 +52,10 @@ class SE(object):
 
         while True:
             test_inputs, test_labels, test_inphase, test_outphase = test_dr.whole_batch(test_dr.num_samples)
-
-            feed_dict = {self.node_inputs: test_inputs, self.node_labels: test_labels, self.node_keep_prob: 1.0}
+            if config.mode != 'lstm' and config.mode != 'fcn':
+                feed_dict = {self.node_inputs: test_inputs, self.node_labels: test_labels, self.node_keep_prob: 1.0}
+            else:
+                feed_dict = {self.node_inputs: test_inputs, self.node_labels: test_labels}
 
             pred = self.sess.run(self.node_prediction, feed_dict=feed_dict)
 
@@ -64,14 +67,14 @@ class SE(object):
                 lpsd = np.squeeze((lpsd * std * config.global_std) + mean)
 
                 recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(test_inphase, (1, 0)),
-                                               win_size=config.win_size, win_step=config.win_step, fs=config.fs)
+                                               win_size=config.win_size, win_step=config.win_step, fs=int(config.fs))
 
                 test_dr.reader_initialize()
 
                 break
 
-        file_dir = save_dir + '/' + os.path.basename(wav_dir).replace('noisy', 'enhanced').replace('raw', 'wav')
-        librosa.output.write_wav(file_dir, recon_speech, config.fs)
+        # file_dir = save_dir + '/' + os.path.basename(wav_dir).replace('noisy', 'enhanced').replace('raw', 'wav')
+        # librosa.output.write_wav(file_dir, recon_speech, int(config.fs), norm=True)
 
         return recon_speech
 
@@ -92,6 +95,7 @@ if __name__ == '__main__':
     # gs.freeze_graph(logs_dir, model_dir, 'model_1/pred,model_1/labels,model_1/cost')
 
     graph_name = sorted(glob.glob(model_dir + '/*.pb'))[-1]
+    # graph_name = '/home/jtkim/hdd3/github_2/SE_graph/Boost/Boost.pb'
 
     noisy_list = sorted(glob.glob(noisy_dir + '/*.raw'))
     clean_list = sorted(glob.glob(clean_dir + '/*.raw'))
@@ -109,7 +113,7 @@ if __name__ == '__main__':
     se = SE(graph_name=graph_name, norm_path=norm_dir)
 
     eng = matlab.engine.start_matlab()
-
+    eng.addpath(eng.genpath('.'))
     for noisy_dir in noisy_list:
 
         file_num = int(os.path.basename(noisy_dir).split("_")[-1].split(".raw")[0].split("num")[-1]) - 1

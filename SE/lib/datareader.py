@@ -150,8 +150,12 @@ class DataReader(object):
             outputs = self._outputs
             output_phase = self._output_phase
         else:
-            outputs = np.zeros((inputs.shape[0], inputs.shape[2]))
-            output_phase = np.zeros((inputs.shape[0], inputs.shape[2]))
+            if config.mode == 'lstm':
+                outputs = np.zeros((inputs.shape[0], inputs.shape[1]))
+                output_phase = np.zeros((inputs.shape[0], inputs.shape[1]))
+            else:
+                outputs = np.zeros((inputs.shape[0], inputs.shape[2]))
+                output_phase = np.zeros((inputs.shape[0], inputs.shape[2]))
 
         self.file_change = True
         self._num_file += 1
@@ -335,7 +339,8 @@ class DataReader(object):
             mean, std = self.norm_process(self._norm_dir + '/norm_noisy.mat')
             lpsd = self._normalize(mean, std, lpsd)
         # print(result.shape)
-
+        if config.mode == 'lstm':
+            is_patch = False
         if is_patch:
             lpsd = np.squeeze(np.concatenate((pad, lpsd, pad), axis=0))  # padding for patching
             # print(result.shape)

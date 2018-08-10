@@ -10,9 +10,27 @@ class Model(object):
         self.lr = 0
         self._is_training = is_training
         # self.keep_probability = tf.placeholder(tf.float32, name="keep_probabilty")
-        self.inputs = inputs = tf.placeholder(tf.float32, shape=[None, config.time_width, config.freq_size, 1],
-                                              name="inputs")
-        self.labels = labels = tf.placeholder(tf.float32, shape=[None, config.freq_size], name="labels")
+        if config.mode == 'lstm':
+
+            self.inputs = inputs = tf.placeholder(tf.float32, shape=[None, config.freq_size, 1, 1], name="inputs")
+            self.labels = labels = tf.placeholder(tf.float32, shape=[None, config.freq_size], name="labels")
+
+            inputs = tf.squeeze(inputs)
+
+            if is_training:
+
+                inputs_mod = tf.mod(tf.shape(inputs)[0], tf.constant(config.time_width))
+                inputs = tf.cond(inputs_mod > 0, lambda: inputs[:-inputs_mod, :], lambda: inputs)
+                inputs = tf.reshape(inputs, (-1, config.time_width, config.freq_size))  # time_width == num_steps
+                labels = tf.cond(inputs_mod > 0, lambda: labels[:-inputs_mod, :], lambda: labels)
+            else:
+                inputs = tf.reshape(inputs, (1, -1, config.freq_size))  # time_width == num_steps
+
+        else:
+            self.inputs = inputs = tf.placeholder(tf.float32, shape=[None, config.time_width, config.freq_size, 1],
+                                                  name="inputs")
+            self.labels = labels = tf.placeholder(tf.float32, shape=[None, config.freq_size], name="labels")
+
         self.keep_prob = tf.placeholder(tf.float32, name="keep_prob")
 
         logits = self.inference(inputs)
@@ -107,6 +125,42 @@ class Model(object):
             h3 = tf.nn.dropout(h3, keep_prob=keep_prob)
 
             fm = utils.affine_transform(h3, config.freq_size, name='logits')
+
+        elif config.mode is "sfnn":
+
+            keep_prob = self.keep_prob
+            skip_inputs = tf.squeeze(inputs[:, int(config.time_width/2), :])
+            inputs = tf.reshape(tf.squeeze(inputs, [3]), (-1, int(config.time_width*config.freq_size)))
+            inputs = tf.nn.dropout(inputs, keep_prob=keep_prob)
+
+            h1 = tf.nn.selu(utils.affine_transform(inputs, 2048, name='hidden_1'))
+            h1 = tf.nn.dropout(h1, keep_prob=keep_prob)
+
+            h2 = tf.nn.selu(utils.affine_transform(h1, 2048, name='hidden_2'))
+            h2 = tf.nn.dropout(h2, keep_prob=keep_prob)
+
+            h3 = tf.nn.selu(utils.affine_transform(h2, 2048, name='hidden_3'))
+            h3 = tf.nn.dropout(h3, keep_prob=keep_prob)
+
+            fm = utils.affine_transform(h3, config.freq_size, name='logits')
+            fm = fm + skip_inputs
+
+        elif config.mode is "lstm":
+
+            keep_prob = self.keep_prob
+
+            # inputs = tf.squeeze(inputs)[:, int(config.time_width/2), :]
+
+            # inputs = tf.reshape(inputs, (-1, config.time_width, config.freq_size))  # time_width == num_steps
+            # inputs = tf.nn.dropout(inputs, keep_prob=keep_prob)
+
+            num_units = [1024, 1024]
+            cells = [tf.nn.rnn_cell.LSTMCell(num_units=n, state_is_tuple=True) for n in num_units]
+
+            cell = tf.nn.rnn_cell.MultiRNNCell(cells=cells, state_is_tuple=True)
+            cell = tf.contrib.rnn.OutputProjectionWrapper(cell, output_size=config.freq_size)
+            outputs, _state = tf.nn.dynamic_rnn(cell, inputs, time_major=False, dtype=tf.float32)
+            fm = tf.reshape(outputs,[-1, config.freq_size])
 
         return fm
 

@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     reset = True
     test_only = False
-    train_reset = False
+    train_reset = True
 
     if reset:
         os.popen('rm -rf ./logs/*')
@@ -49,6 +49,7 @@ if __name__ == '__main__':
     os.popen('rm -rf ./saved_model/*')
 
     if train_reset:
+
         os.popen('rm -rf ' + './data/train/noisy/*.npy')
         os.popen('rm -rf ' + './data/train/noisy/*.bin')
 
@@ -60,6 +61,18 @@ if __name__ == '__main__':
 
         os.popen('rm -rf ' + './data/valid/clean/*.npy')
         os.popen('rm -rf ' + './data/valid/clean/*.bin')
+
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy/*.npy')
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy/*.bin')
+        #
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean/*.npy')
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean/*.bin')
+        #
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy/*.npy')
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy/*.bin')
+        #
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean/*.npy')
+        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean/*.bin')
 
     # model train
 
