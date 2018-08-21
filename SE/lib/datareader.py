@@ -153,6 +153,9 @@ class DataReader(object):
             if config.mode == 'lstm':
                 outputs = np.zeros((inputs.shape[0], inputs.shape[1]))
                 output_phase = np.zeros((inputs.shape[0], inputs.shape[1]))
+            elif config.mode == 'tsn':
+                outputs = np.squeeze(np.zeros(inputs.shape))
+                output_phase = np.squeeze(np.zeros(inputs.shape))
             else:
                 outputs = np.zeros((inputs.shape[0], inputs.shape[2]))
                 output_phase = np.zeros((inputs.shape[0], inputs.shape[2]))
@@ -285,7 +288,11 @@ class DataReader(object):
                         feat = self.lpsd_dist_p(data, self._dist_num,
                                           is_patch=False)  # (The number of samples, config.freq_size, 1, 1)
                     else:
-                        feat, phase = self.lpsd_dist(data, self._dist_num,
+                        if config.mode == 'tsn':
+                            feat, phase = self.lpsd_dist(data, self._dist_num,
+                                          is_patch=True)  # (The number of samples, config.freq_size, 1, 1)
+                        else:
+                            feat, phase = self.lpsd_dist(data, self._dist_num,
                                           is_patch=False)  # (The number of samples, config.freq_size, 1, 1)
                     feat_size = feat.size
                     feat_phase = np.concatenate((feat.reshape(-1), phase.reshape(-1)))

@@ -1,14 +1,14 @@
 import numpy as np
 import os
 
-mode = "fcn"
+mode = "sfnn"  # fnn, fcn, lstm, sfnn, tsn
 
 if mode == 'lstm':
     time_width = int(16)
 else:
     time_width = int(9)
 
-fs = int(8000)
+fs = float(8000)
 win_size = int(0.025 * fs)  # The number of samples in window
 win_step = int(0.010 * fs)
 # nfft = np.int(2 ** (np.floor(np.log2(win_size) + 1)))

@@ -23,9 +23,22 @@ import get_norm as gn
 from time import sleep
 
 
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+clean_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/clean'
+noisy_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/noisy'
+norm_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/train/norm'
+
+
+# clean_dir = os.path.abspath('./data/test/clean')
+# noisy_dir = os.path.abspath('./data/test/noisy')
+# norm_dir = os.path.abspath('./data/train/norm')
+
+
 class SE(object):
 
-    def __init__(self, graph_name, norm_path):
+    def __init__(self, graph_name, norm_path, save_dir = os.path.abspath('./enhanced_wav')):
 
         graph = gt.load_graph(graph_name)
 
@@ -40,6 +53,7 @@ class SE(object):
 
         self.sess = tf.Session(config=sess_config, graph=graph)
         self.norm_path = norm_path
+        self.save_dir = save_dir
 
     def enhance(self, wav_dir):
 
@@ -67,30 +81,98 @@ class SE(object):
                 lpsd = np.squeeze((lpsd * std * config.global_std) + mean)
 
                 recon_speech = utils.get_recon(np.transpose(lpsd, (1, 0)), np.transpose(test_inphase, (1, 0)),
-                                               win_size=config.win_size, win_step=config.win_step, fs=int(config.fs))
+                                               win_size=config.win_size, win_step=config.win_step, fs=config.fs)
 
                 test_dr.reader_initialize()
 
                 break
 
-        # file_dir = save_dir + '/' + os.path.basename(wav_dir).replace('noisy', 'enhanced').replace('raw', 'wav')
-        # librosa.output.write_wav(file_dir, recon_speech, int(config.fs), norm=True)
+        file_dir = self.save_dir + '/' + os.path.basename(wav_dir).replace('noisy', 'enhanced').replace('raw', 'wav')
+        librosa.output.write_wav(file_dir, recon_speech, int(config.fs), norm=True)
 
         return recon_speech
 
 
-if __name__ == '__main__':
-
-    clean_dir = os.path.abspath('./data/test/clean')
-    noisy_dir = os.path.abspath('./data/test/noisy')
-    norm_dir = os.path.abspath('./data/train/norm')
-
-    # clean_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/clean'
-    # noisy_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/noisy'
-    # norm_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/train/norm'
+def test(clean_dir=clean_dir, noisy_dir=noisy_dir, norm_dir=norm_dir):
 
     # logs_dir = os.path.abspath('./logs' + '/logs_' + "2018-06-04-02-06-49")
-    save_dir = os.path.abspath('./enhanced_wav')
+    model_dir = os.path.abspath('./saved_model')
+    # gs.freeze_graph(logs_dir, model_dir, 'model_1/pred,model_1/labels,model_1/cost')
+
+    graph_name = sorted(glob.glob(model_dir + '/*.pb'))[-1]
+    # graph_name = '/home/jtkim/hdd3/github_2/SE_graph/Boost_2/Boost_2.pb'
+
+    noisy_list = sorted(glob.glob(noisy_dir + '/*.raw'))
+    clean_list = sorted(glob.glob(clean_dir + '/*.raw'))
+
+    noisy_result = {'noisy_pesq':np.zeros((10, 3, 15)),
+                     'noisy_stoi':np.zeros((10, 3, 15)),
+                     'noisy_ssnr':np.zeros((10, 3, 15)),
+                     'noisy_lsd':np.zeros((10, 3, 15))}
+
+    enhance_result = {'enhanced_pesq':np.zeros((10, 3, 15)),
+                     'enhanced_stoi':np.zeros((10, 3, 15)),
+                     'enhanced_ssnr':np.zeros((10, 3, 15)),
+                     'enhanced_lsd':np.zeros((10, 3, 15))}
+
+    se = SE(graph_name=graph_name, norm_path=norm_dir)
+
+    eng = matlab.engine.start_matlab()
+    eng.addpath(eng.genpath('.'))
+
+    for noisy_dir in noisy_list:
+
+        file_num = int(os.path.basename(noisy_dir).split("_")[-1].split(".raw")[0].split("num")[-1]) - 1
+        snr_num = int(os.path.basename(noisy_dir).split("_")[1].split("snr")[1]) - 1
+        noise_num = int(os.path.basename(noisy_dir).split("_")[0].split("noisy")[1]) - 1
+
+        for clean_name in clean_list:
+            if clean_name.split('num')[-1] == noisy_dir.split('num')[-1]:
+                clean_dir = clean_name
+                break
+        print(noisy_dir)
+
+        # recon_speech = speech_enhance(noisy_dir, graph_name)
+        recon_speech = se.enhance(noisy_dir)
+        noisy_speech = utils.identity_trans(utils.read_raw(noisy_dir))
+        clean_speech = utils.identity_trans(utils.read_raw(clean_dir))
+
+        noisy_measure = utils.se_eval(clean_speech, noisy_speech, float(config.fs), eng)
+        enhanced_measure = utils.se_eval(clean_speech, recon_speech, float(config.fs), eng)
+
+        noisy_result['noisy_pesq'][file_num, snr_num, noise_num] = noisy_measure['pesq']
+        noisy_result['noisy_stoi'][file_num, snr_num, noise_num] = noisy_measure['stoi']
+        noisy_result['noisy_ssnr'][file_num, snr_num, noise_num] = noisy_measure['ssnr']
+        noisy_result['noisy_lsd'][file_num, snr_num, noise_num] = noisy_measure['lsd']
+
+        enhance_result['enhanced_pesq'][file_num, snr_num, noise_num] = enhanced_measure['pesq']
+        enhance_result['enhanced_stoi'][file_num, snr_num, noise_num] = enhanced_measure['stoi']
+        enhance_result['enhanced_ssnr'][file_num, snr_num, noise_num] = enhanced_measure['ssnr']
+        enhance_result['enhanced_lsd'][file_num, snr_num, noise_num] = enhanced_measure['lsd']
+
+    noisy_result['noisy_pesq'] = np.mean(noisy_result['noisy_pesq'], axis=0)
+    noisy_result['noisy_stoi'] = np.mean(noisy_result['noisy_stoi'], axis=0)
+    noisy_result['noisy_ssnr'] = np.mean(noisy_result['noisy_ssnr'], axis=0)
+    noisy_result['noisy_lsd'] = np.mean(noisy_result['noisy_lsd'], axis=0)
+
+    enhance_result['enhanced_pesq'] = np.mean(enhance_result['enhanced_pesq'], axis=0)
+    enhance_result['enhanced_stoi'] = np.mean(enhance_result['enhanced_stoi'], axis=0)
+    enhance_result['enhanced_ssnr'] = np.mean(enhance_result['enhanced_ssnr'], axis=0)
+    enhance_result['enhanced_lsd'] = np.mean(enhance_result['enhanced_lsd'], axis=0)
+
+    scipy.io.savemat('./test_result/noisy_result.mat', noisy_result)
+    scipy.io.savemat('./test_result/enhanced_result.mat', enhance_result)
+
+    eng.exit()
+
+
+if __name__ == '__main__':
+
+    # clean_dir = os.path.abspath('./data/test/clean')
+    # noisy_dir = os.path.abspath('./data/test/noisy')
+    # norm_dir = os.path.abspath('./data/train/norm')
+
+    # logs_dir = os.path.abspath('./logs' + '/logs_' + "2018-06-04-02-06-49")
     model_dir = os.path.abspath('./saved_model')
     # gs.freeze_graph(logs_dir, model_dir, 'model_1/pred,model_1/labels,model_1/cost')
 
@@ -114,6 +196,7 @@ if __name__ == '__main__':
 
     eng = matlab.engine.start_matlab()
     eng.addpath(eng.genpath('.'))
+
     for noisy_dir in noisy_list:
 
         file_num = int(os.path.basename(noisy_dir).split("_")[-1].split(".raw")[0].split("num")[-1]) - 1

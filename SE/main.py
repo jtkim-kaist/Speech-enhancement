@@ -20,6 +20,11 @@ import time
 import librosa
 import librosa.display as ld
 import get_norm as gn
+import test
+
+
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 if __name__ == '__main__':
@@ -49,30 +54,31 @@ if __name__ == '__main__':
     os.popen('rm -rf ./saved_model/*')
 
     if train_reset:
-
-        os.popen('rm -rf ' + './data/train/noisy/*.npy')
-        os.popen('rm -rf ' + './data/train/noisy/*.bin')
-
-        os.popen('rm -rf ' + './data/train/clean/*.npy')
-        os.popen('rm -rf ' + './data/train/clean/*.bin')
-
-        os.popen('rm -rf ' + './data/valid/noisy/*.npy')
-        os.popen('rm -rf ' + './data/valid/noisy/*.bin')
-
-        os.popen('rm -rf ' + './data/valid/clean/*.npy')
-        os.popen('rm -rf ' + './data/valid/clean/*.bin')
-
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy/*.npy')
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy/*.bin')
+        # os.popen('rm -rf ' + './data/train/noisy/*.npy')
+        # os.popen('rm -rf ' + './data/train/noisy/*.bin')
         #
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean/*.npy')
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean/*.bin')
+        # os.popen('rm -rf ' + './data/train/clean/*.npy')
+        # os.popen('rm -rf ' + './data/train/clean/*.bin')
         #
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy/*.npy')
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy/*.bin')
+        # os.popen('rm -rf ' + './data/valid/noisy/*.npy')
+        # os.popen('rm -rf ' + './data/valid/noisy/*.bin')
         #
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean/*.npy')
-        # os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean/*.bin')
+        # os.popen('rm -rf ' + './data/valid/clean/*.npy')
+        # os.popen('rm -rf ' + './data/valid/clean/*.bin')
+
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy/*.npy')
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy/*.bin')
+
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean/*.npy')
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean/*.bin')
+
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy/*.npy')
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy/*.bin')
+
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean/*.npy')
+        os.popen('rm -rf ' + '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean/*.bin')
+
+
 
     # model train
 
@@ -85,3 +91,5 @@ if __name__ == '__main__':
         gs.freeze_graph(logs_dir, save_dir, 'model_1/pred,model_1/labels,model_1/cost')
 
     print("Training was ended!")
+
+    test.test()

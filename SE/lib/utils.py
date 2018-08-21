@@ -348,3 +348,43 @@ def get_lpsd(data):
     phase = np.transpose(np.expand_dims(phase, axis=2), (1, 0, 2))[:-1, :]
     result = np.concatenate((lpsd, phase), axis=2)
     return result
+
+
+def extract_patch(inputs, patch_size):
+    # inputs: Tensor, shape=(batch_size, width)
+    # patch_size: tuple, shape=(patch_height, patch_width)
+    # outputs: Tensor, shape=(# patches (batch_size - patch_height + 1), patch_height, patch_width)
+
+    inputs = tf.expand_dims(tf.expand_dims(inputs, axis=0), axis=3)
+    kernel = tf.reshape(tf.diag(tf.ones(patch_size[0], 1)), shape=(patch_size[0], 1, 1, patch_size[0]))
+    conv = tf.nn.conv2d(input=inputs, filter=kernel, strides=[1, config.freq_size, 1, 1], padding='VALID', name='patch_conv')
+    conv = tf.transpose(tf.squeeze(conv), (0, 2, 1))
+
+    return conv
+
+
+def conv2d_basic_2(x, W, bias, stride=1, padding="SAME"):
+    # conv = tf.nn.conv2d(x, W, strides=[1, stride, stride, 1], padding=padding)
+    conv = tf.nn.conv2d(x, W, strides=[1, stride, stride, 1], padding=padding)  # 100 is for reducing the time dimension
+
+    return tf.nn.bias_add(conv, bias)
+
+
+def conv_with_bn_2(inputs, out_channels, filter_size=[3, 3], stride=1, act='relu', is_training=True,
+                 padding="SAME", name=None):
+
+    in_height = filter_size[0]
+    in_width = filter_size[1]
+    in_channels = inputs.get_shape().as_list()[3]
+    W = weight_variable([in_height, in_width, in_channels, out_channels], name=name+'_W')
+    b = bias_variable([out_channels], name=name+'_b')
+    conv = conv2d_basic_2(inputs, W, b, stride=stride, padding=padding)
+    # conv = tf.contrib.layers.batch_norm(conv, decay=0.9, is_training=is_training, updates_collections=None)
+    if act is 'relu':
+        # relu = tf.nn.relu(conv)
+
+        # prelu = tf.keras.layers.PReLU(alpha_initializer='zeros', shared_axes=[1, 2])
+        relu = tf.nn.selu(conv)
+    elif act is 'linear':
+        relu = conv
+    return relu
