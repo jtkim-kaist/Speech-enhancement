@@ -263,11 +263,13 @@ class Model(object):
                                         padding="SAME", name='conv_2')
             conv_3 = utils.conv_with_bn_2(conv_2, 64, filter_size=[5, 1], stride=1, act='relu', is_training=True,
                                         padding="SAME", name='conv_3')
-            conv_4 = utils.conv_with_bn_2(conv_3, 1, filter_size=[5, 1], stride=1, act='relu', is_training=True,
+            conv_4 = utils.conv_with_bn_2(conv_3, 32, filter_size=[5, 1], stride=1, act='relu', is_training=True,
                                         padding="SAME", name='conv_4')
-            conv_4 = tf.squeeze(tf.squeeze(conv_4, axis=2), axis=2)
+            conv_5 = utils.conv_with_bn_2(conv_4, 1, filter_size=[5, 1], stride=1, act='relu', is_training=True,
+                                        padding="SAME", name='conv_5')
+            conv_6 = tf.squeeze(tf.squeeze(conv_5, axis=2), axis=2)
 
-        return fm, conv_4
+        return fm, conv_6
 
     def train(self, loss, var_list, global_step):
 

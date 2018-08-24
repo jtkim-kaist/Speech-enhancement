@@ -1,7 +1,7 @@
 import numpy as np
 import os
 
-mode = "sfnn"  # fnn, fcn, lstm, sfnn, tsn
+mode = "tsn"  # fnn, fcn, lstm, sfnn, tsn
 
 if mode == 'lstm':
     time_width = int(16)

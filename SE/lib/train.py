@@ -244,16 +244,16 @@ def main(argv=None):
     # train_output_path = argv[0] + '/data/train/clean'
     # norm_path = argv[0] + '/data/train/norm'
 
-    train_input_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy'
-    train_output_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean'
-    norm_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/norm'
+    train_input_path = '/home/jtkim/github/SE_data_raw/data/train/noisy'
+    train_output_path =   '/home/jtkim/github/SE_data_raw/data/train/clean'
+    norm_path = '/home/jtkim/github/SE_data_raw/data/train/norm'
 
     # set valid path
     # valid_input_path = argv[0] + '/data/valid/noisy'
     # valid_output_path = argv[0] + '/data/valid/clean'
 
-    valid_input_path = '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy'
-    valid_output_path = '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean'
+    valid_input_path = '/home/jtkim/github/SE_data_raw/data/valid/noisy'
+    valid_output_path = '/home/jtkim/github/SE_data_raw/data/valid/clean'
 
     logs_dir = argv[1]
     #                               Graph Part                               #

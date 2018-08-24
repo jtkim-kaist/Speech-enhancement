@@ -379,7 +379,7 @@ def conv_with_bn_2(inputs, out_channels, filter_size=[3, 3], stride=1, act='relu
     W = weight_variable([in_height, in_width, in_channels, out_channels], name=name+'_W')
     b = bias_variable([out_channels], name=name+'_b')
     conv = conv2d_basic_2(inputs, W, b, stride=stride, padding=padding)
-    # conv = tf.contrib.layers.batch_norm(conv, decay=0.9, is_training=is_training, updates_collections=None)
+    conv = tf.contrib.layers.batch_norm(conv, decay=0.9, is_training=is_training, updates_collections=None)
     if act is 'relu':
         # relu = tf.nn.relu(conv)
 

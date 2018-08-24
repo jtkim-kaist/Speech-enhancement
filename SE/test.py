@@ -26,9 +26,9 @@ from time import sleep
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-clean_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/clean'
-noisy_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/test/noisy'
-norm_dir = '/home/jtkim/hdd3/github/SE_data_raw/data/train/norm'
+clean_dir = '/home/jtkim/github/SE_data_raw/data/test/clean'
+noisy_dir = '/home/jtkim/github/SE_data_raw/data/test/noisy'
+norm_dir = '/home/jtkim/github/SE_data_raw/data/train/norm'
 
 
 # clean_dir = os.path.abspath('./data/test/clean')

@@ -49,11 +49,23 @@ def freeze_graph(model_dir, output_dir, output_node_names):
 
         # We restore the weights
         saver.restore(sess, input_checkpoint)
+        gd = tf.get_default_graph().as_graph_def()
+
+        # fix batch_norm
+        for node in gd.node:
+            if node.op == 'RefSwitch':
+                node.op = 'Switch'
+                for index in xrange(len(node.input)):
+                    if 'moving_' in node.input[index]:
+                        node.input[index] = node.input[index] + '/read'
+            elif node.op == 'AssignSub':
+                node.op = 'Sub'
+                if 'use_locking' in node.attr: del node.attr['use_locking']
 
         # We use a built-in TF helper to export variables to constants
         output_graph_def = tf.graph_util.convert_variables_to_constants(
             sess, # The session is used to retrieve the weights
-            tf.get_default_graph().as_graph_def(), # The graph_def is used to retrieve the nodes 
+            gd, # The graph_def is used to retrieve the nodes
             output_node_names.split(",") # The output node names are used to select the usefull nodes
         ) 
 
