@@ -1,6 +1,6 @@
 # Speech Enhancement Toolkit
 
-*Now, we are preparing the paper "Two Step Network for Speech Enhancement", so this project will change frequently (If you want to use it, please change the path in prj_dir/test.py, prj_dir/lib/train.py and prj_dir/main.py)*
+**Now, we are preparing the paper "Two Step Network for Speech Enhancement", so this project will change frequently (If you want to use it, please change the path in prj_dir/test.py, prj_dir/lib/train.py and prj_dir/main.py)**
 
 The speech enhancement (SE) removes the noise signal from the noisy speech signal.
 
