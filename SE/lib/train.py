@@ -124,7 +124,7 @@ class Summary(object):
                         if "def inference(self, inputs):" in line:
                             read_flag = True
 
-                        if "return fm" in line:
+                        if "pass" in line:
                             code_list.append('<br>' + line.replace('\n', '') + '</br>')
                             break
 
@@ -244,16 +244,16 @@ def main(argv=None):
     # train_output_path = argv[0] + '/data/train/clean'
     # norm_path = argv[0] + '/data/train/norm'
 
-    train_input_path = '/home/jtkim/github/SE_data_raw/data/train/noisy'
-    train_output_path =   '/home/jtkim/github/SE_data_raw/data/train/clean'
-    norm_path = '/home/jtkim/github/SE_data_raw/data/train/norm'
+    train_input_path = config.train_input_path
+    train_output_path = config.train_output_path
+    norm_path = config.norm_path
 
     # set valid path
     # valid_input_path = argv[0] + '/data/valid/noisy'
     # valid_output_path = argv[0] + '/data/valid/clean'
 
-    valid_input_path = '/home/jtkim/github/SE_data_raw/data/valid/noisy'
-    valid_output_path = '/home/jtkim/github/SE_data_raw/data/valid/clean'
+    valid_input_path = config.valid_input_path
+    valid_output_path = config.valid_output_path
 
     logs_dir = argv[1]
     #                               Graph Part                               #

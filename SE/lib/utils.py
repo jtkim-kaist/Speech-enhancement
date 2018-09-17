@@ -370,7 +370,7 @@ def conv2d_basic_2(x, W, bias, stride=1, padding="SAME"):
     return tf.nn.bias_add(conv, bias)
 
 
-def conv_with_bn_2(inputs, out_channels, filter_size=[3, 3], stride=1, act='relu', is_training=True,
+def conv_with_bn_2(inputs, out_channels, filter_size=[3, 3], stride=1, act='relu', scale=True, is_training=True,
                  padding="SAME", name=None):
 
     in_height = filter_size[0]
@@ -379,12 +379,12 @@ def conv_with_bn_2(inputs, out_channels, filter_size=[3, 3], stride=1, act='relu
     W = weight_variable([in_height, in_width, in_channels, out_channels], name=name+'_W')
     b = bias_variable([out_channels], name=name+'_b')
     conv = conv2d_basic_2(inputs, W, b, stride=stride, padding=padding)
-    conv = tf.contrib.layers.batch_norm(conv, decay=0.9, is_training=is_training, updates_collections=None)
+    # conv = tf.contrib.layers.batch_norm(conv, scale=scale, is_training=is_training)
     if act is 'relu':
-        # relu = tf.nn.relu(conv)
+        relu = tf.nn.selu(conv)
 
         # prelu = tf.keras.layers.PReLU(alpha_initializer='zeros', shared_axes=[1, 2])
-        relu = tf.nn.selu(conv)
+        # relu = tf.nn.selu(conv)
     elif act is 'linear':
         relu = conv
     return relu

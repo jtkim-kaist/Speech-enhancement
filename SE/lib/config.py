@@ -1,7 +1,7 @@
 import numpy as np
 import os
 
-mode = "tsn"  # fnn, fcn, lstm, sfnn, tsn
+mode = "fnn"  # fnn, fcn, lstm, sfnn, irm, tsn
 
 if mode == 'lstm':
     time_width = int(16)
@@ -35,9 +35,23 @@ batch_size = int(256)
 
 test_batch_size = 128
 
-val_step = int(20)
-summary_step = int(500)  # 3000
+val_step = int(500)
+summary_step = int(1000)  # 3000
 summary_fnum = int(5)
 
-
 parallel = False
+
+'''directory set'''
+
+train_input_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/noisy'
+train_output_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/clean'
+norm_path = '/home/jtkim/hdd3/github/SE_data_raw/data/train/norm'
+
+valid_input_path = '/home/jtkim/hdd3/github/SE_data_raw/data/valid/noisy'
+valid_output_path = '/home/jtkim/hdd3/github/SE_data_raw/data/valid/clean'
+
+small_test_clean_path = '/home/jtkim/hdd3/github/SE_data_raw/data/test/clean'
+small_test_noisy_path = '/home/jtkim/hdd3/github/SE_data_raw/data/test/noisy'
+
+full_test_clean_path = '/home/jtkim/hdd3/github/SE_data_raw/data/test/clean'
+full_test_noisy_path = '/home/jtkim/hdd3/github/SE_data_raw/data/test/noisy'
