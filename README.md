@@ -1,6 +1,8 @@
 # Speech Enhancement Toolkit
 
-**Now, we are preparing the paper "Speech Enhancement Using a Two Step Network", so this project will change frequently (If you want to use it, please change the path in prj_dir/lib/config.py)**
+This toolkit is implemention for following paper:
+
+J. Kim and M. Hahn, "Speech Enhancement Using a Two-Stage Network for an Efficient Boosting Strategy," in IEEE Signal Processing Letters. doi: 10.1109/LSP.2019.2905660
 
 The speech enhancement (SE) removes the noise signal from the noisy speech signal.
 
