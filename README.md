@@ -1,6 +1,6 @@
 # Speech Enhancement Toolkit
 
-This toolkit is implemention for following paper:
+This toolkit is the implemention of following paper:
 
 J. Kim and M. Hahn, "Speech Enhancement Using a Two-Stage Network for an Efficient Boosting Strategy," in IEEE Signal Processing Letters. doi: 10.1109/LSP.2019.2905660
 
