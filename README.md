@@ -3,6 +3,7 @@
 This toolkit is the implemention of following paper:
 
 J. Kim and M. Hahn, "Speech Enhancement Using a Two-Stage Network for an Efficient Boosting Strategy," in IEEE Signal Processing Letters. doi: 10.1109/LSP.2019.2905660
+URL: https://ieeexplore.ieee.org/document/8668449
 
 The speech enhancement (SE) removes the noise signal from the noisy speech signal.
 
